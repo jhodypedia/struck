@@ -40,13 +40,12 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 /**
- * Gambar garis putus-putus horizontal (separator ala struk kasir)
+ * Gambar garis solid modern (pengganti garis putus-putus)
  */
-function drawDashedLine(ctx, x1, y, x2, color = '#999999') {
+function drawDivider(ctx, x1, y, x2, color = '#27272A') {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
-  ctx.setLineDash([4, 3]);
   ctx.beginPath();
   ctx.moveTo(x1, y);
   ctx.lineTo(x2, y);
@@ -55,32 +54,56 @@ function drawDashedLine(ctx, x1, y, x2, color = '#999999') {
 }
 
 /**
- * Hitung tinggi canvas dinamis berdasarkan jumlah item & catatan,
- * supaya struk tidak terpotong / tidak terlalu banyak whitespace.
+ * Gambar badge status (contoh: LUNAS dengan background hijau)
+ */
+function drawBadge(ctx, text, x, y) {
+  ctx.save();
+  ctx.font = 'bold 11px sans-serif';
+  const textWidth = ctx.measureText(text).width;
+  const paddingX = 12;
+  const paddingY = 6;
+  const badgeWidth = textWidth + (paddingX * 2);
+  const badgeHeight = 22;
+
+  // Background Badge (Emerald / Green)
+  ctx.fillStyle = '#064E3B'; 
+  ctx.beginPath();
+  ctx.roundRect(x - badgeWidth, y - 14, badgeWidth, badgeHeight, 6);
+  ctx.fill();
+
+  // Text Badge
+  ctx.fillStyle = '#34D399'; 
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x - (badgeWidth / 2), y + 1);
+  ctx.restore();
+}
+
+/**
+ * Hitung tinggi canvas dinamis
  */
 function calculateHeight(data) {
   const items = data.items || [];
   let height = 0;
 
-  height += 40;  // padding top
-  height += 90;  // header (nama toko, alamat, telp)
-  height += 30;  // separator + spacing
-  height += 110; // info transaksi (txid, tanggal, kasir, metode bayar)
+  height += 60;  // padding top + logo/header spacing
+  height += 80;  // nama brand & deskripsi
+  height += 30;  // separator
+  height += 120; // info transaksi
   height += 30;  // separator
 
   items.forEach((item) => {
-    height += 28;
-    if ((item.name || '').length > 28) height += 18;
+    height += 30; // spacing per item (premium lebih lega)
+    if ((item.name || '').length > 28) height += 20;
   });
 
-  height += 20;  // separator sebelum total
+  height += 30;  // separator sebelum total
   height += 130; // subtotal, diskon, pajak, total
   height += 30;  // separator
-  height += 90;  // footer (terima kasih, catatan)
+  height += 90;  // footer
 
   if (data.note) height += 40;
 
-  return Math.max(height, 500);
+  return Math.max(height, 550);
 }
 
 /**
@@ -91,80 +114,77 @@ function calculateHeight(data) {
 function generateReceipt(data) {
   const WIDTH = 560;
   const HEIGHT = calculateHeight(data);
-  const PAD = 32;
+  const PAD = 40; // Padding lebih lebar untuk kesan premium
 
   const canvas = createCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext('2d');
 
-  // --- Background ---
-  ctx.fillStyle = '#ffffff';
+  // --- Background (Dark Mode Premium) ---
+  ctx.fillStyle = '#09090B'; // Zinc 950
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  let y = 36;
+  // --- Top Accent Line (Neon Glow vibe) ---
+  ctx.fillStyle = '#3B82F6'; // Blue 500
+  ctx.fillRect(0, 0, WIDTH, 4);
 
-  // --- Header: nama toko ---
-  ctx.fillStyle = '#111111';
-  ctx.font = 'bold 26px sans-serif';
+  let y = 60;
+
+  // --- Header: Brand ---
+  ctx.fillStyle = '#FAFAFA'; // Zinc 50
+  ctx.font = 'bold 30px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(data.merchantName || 'Toko Online', WIDTH / 2, y);
+  ctx.fillText(data.merchantName || 'PANSA GROUP', WIDTH / 2, y);
   y += 28;
 
   if (data.merchantAddress) {
-    ctx.font = '13px sans-serif';
-    ctx.fillStyle = '#555555';
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#A1A1AA'; // Zinc 400
     const addrLines = wrapText(ctx, data.merchantAddress, WIDTH - PAD * 2);
     addrLines.forEach((line) => {
       ctx.fillText(line, WIDTH / 2, y);
-      y += 17;
+      y += 20;
     });
   }
 
-  if (data.merchantPhone) {
-    ctx.font = '13px sans-serif';
-    ctx.fillStyle = '#555555';
-    ctx.fillText(`Telp: ${data.merchantPhone}`, WIDTH / 2, y);
-    y += 17;
-  }
-
-  y += 12;
-  drawDashedLine(ctx, PAD, y, WIDTH - PAD);
-  y += 26;
+  y += 10;
+  drawDivider(ctx, PAD, y, WIDTH - PAD);
+  y += 30;
 
   // --- Info transaksi ---
   ctx.textAlign = 'left';
-  ctx.font = '13px sans-serif';
 
-  const infoRow = (label, value) => {
-    ctx.fillStyle = '#777777';
+  const infoRow = (label, value, isBadge = false) => {
+    ctx.fillStyle = '#A1A1AA';
     ctx.font = '13px sans-serif';
     ctx.fillText(label, PAD, y);
-    ctx.fillStyle = '#111111';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(String(value ?? '-'), WIDTH - PAD, y);
-    ctx.textAlign = 'left';
-    y += 20;
+    
+    if (isBadge) {
+      drawBadge(ctx, value, WIDTH - PAD, y);
+    } else {
+      ctx.fillStyle = '#FAFAFA';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(String(value ?? '-'), WIDTH - PAD, y);
+      ctx.textAlign = 'left';
+    }
+    y += 26; // Spacing lebih lega
   };
 
   infoRow('No. Transaksi', data.txid || '-');
   infoRow('Tanggal', formatTanggal(data.date || new Date()));
-  if (data.cashier) infoRow('Kasir', data.cashier);
   if (data.customerName) infoRow('Pelanggan', data.customerName);
   if (data.paymentMethod) infoRow('Metode Bayar', data.paymentMethod);
-  infoRow('Status', data.status || 'LUNAS');
+  infoRow('Status', data.status || 'LUNAS', true); // Panggil fungsi badge
 
-  y += 6;
-  drawDashedLine(ctx, PAD, y, WIDTH - PAD);
-  y += 24;
+  y += 10;
+  drawDivider(ctx, PAD, y, WIDTH - PAD);
+  y += 30;
 
   // --- Daftar item ---
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillStyle = '#999999';
-  ctx.fillText('ITEM', PAD, y);
-  ctx.textAlign = 'right';
-  ctx.fillText('SUBTOTAL', WIDTH - PAD, y);
-  ctx.textAlign = 'left';
-  y += 18;
+  ctx.fillStyle = '#71717A'; // Zinc 500
+  ctx.fillText('ITEM TRANSAKSI', PAD, y);
+  y += 24;
 
   const items = data.items || [];
   items.forEach((item) => {
@@ -172,81 +192,76 @@ function generateReceipt(data) {
     const price = item.price || 0;
     const subtotal = item.subtotal ?? qty * price;
 
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = '#FAFAFA';
 
-    const nameLines = wrapText(ctx, item.name || 'Item', 320);
+    const nameLines = wrapText(ctx, item.name || 'Item', 300);
     ctx.fillText(nameLines[0], PAD, y);
 
     ctx.textAlign = 'right';
     ctx.fillText(formatRupiah(subtotal), WIDTH - PAD, y);
     ctx.textAlign = 'left';
-    y += 18;
+    y += 20;
 
     if (nameLines.length > 1) {
       ctx.fillText(nameLines[1], PAD, y);
-      y += 16;
+      y += 18;
     }
 
-    ctx.font = '12px sans-serif';
-    ctx.fillStyle = '#888888';
+    ctx.font = '13px sans-serif';
+    ctx.fillStyle = '#A1A1AA';
     ctx.fillText(`${qty} x ${formatRupiah(price)}`, PAD, y);
-    y += 22;
+    y += 28;
   });
 
-  drawDashedLine(ctx, PAD, y, WIDTH - PAD);
-  y += 24;
+  drawDivider(ctx, PAD, y, WIDTH - PAD);
+  y += 30;
 
   // --- Ringkasan total ---
   const subtotalAll = data.subtotal ?? items.reduce((sum, i) => sum + (i.subtotal ?? i.qty * i.price), 0);
 
   const totalRow = (label, value, big = false) => {
-    ctx.font = big ? 'bold 17px sans-serif' : '13px sans-serif';
-    ctx.fillStyle = big ? '#111111' : '#555555';
+    ctx.font = big ? 'bold 18px sans-serif' : '14px sans-serif';
+    ctx.fillStyle = big ? '#FAFAFA' : '#A1A1AA';
     ctx.fillText(label, PAD, y);
+    
+    if (big) ctx.fillStyle = '#60A5FA'; // Aksentuasi warna biru untuk Total Bayar
     ctx.textAlign = 'right';
     ctx.fillText(formatRupiah(value), WIDTH - PAD, y);
     ctx.textAlign = 'left';
-    y += big ? 26 : 20;
+    y += big ? 30 : 24;
   };
 
   totalRow('Subtotal', subtotalAll);
   if (data.discount) totalRow('Diskon', -Math.abs(data.discount));
   if (data.tax) totalRow('Pajak', data.tax);
-  if (data.shippingFee) totalRow('Ongkir', data.shippingFee);
+  if (data.shippingFee) totalRow('Biaya Layanan', data.shippingFee);
 
-  y += 4;
-  drawDashedLine(ctx, PAD, y, WIDTH - PAD);
-  y += 26;
-
-  const total = data.total ?? (subtotalAll - (data.discount || 0) + (data.tax || 0) + (data.shippingFee || 0));
-  totalRow('TOTAL', total, true);
-
-  y += 10;
-  drawDashedLine(ctx, PAD, y, WIDTH - PAD);
+  y += 6;
+  drawDivider(ctx, PAD, y, WIDTH - PAD);
   y += 30;
 
-  // --- Footer ---
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 14px sans-serif';
-  ctx.fillStyle = '#111111';
-  ctx.fillText(data.footerTitle || 'Terima kasih telah berbelanja!', WIDTH / 2, y);
+  const total = data.total ?? (subtotalAll - (data.discount || 0) + (data.tax || 0) + (data.shippingFee || 0));
+  totalRow('TOTAL BAYAR', total, true);
+
   y += 20;
 
-  if (data.note) {
-    ctx.font = '12px sans-serif';
-    ctx.fillStyle = '#777777';
-    const noteLines = wrapText(ctx, data.note, WIDTH - PAD * 2);
-    noteLines.forEach((line) => {
-      ctx.fillText(line, WIDTH / 2, y);
-      y += 16;
-    });
-    y += 6;
-  }
+  // --- Footer ---
+  ctx.fillStyle = '#18181B'; // Background kotak footer
+  ctx.beginPath();
+  ctx.roundRect(PAD, y, WIDTH - (PAD * 2), 80, 8);
+  ctx.fill();
 
-  ctx.font = '11px sans-serif';
-  ctx.fillStyle = '#aaaaaa';
-  ctx.fillText('Struk ini dibuat otomatis oleh sistem', WIDTH / 2, y);
+  y += 32;
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.fillStyle = '#FAFAFA';
+  ctx.fillText(data.footerTitle || 'Transaksi Berhasil', WIDTH / 2, y);
+  y += 22;
+
+  ctx.font = '12px sans-serif';
+  ctx.fillStyle = '#A1A1AA';
+  ctx.fillText('Dokumen digital ini sah dan diterbitkan oleh sistem.', WIDTH / 2, y);
 
   return canvas.toBuffer('image/png');
 }
