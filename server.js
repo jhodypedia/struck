@@ -7,6 +7,10 @@ const { saveReceiptFile, getFilePath, startCleanupInterval, TTL_MS } = require('
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// WAJIB UNTUK CLOUDFLARE + NGINX REVERSE PROXY
+// Memastikan Express membaca IP asli dari header HTTP, bukan IP lokal Nginx
+app.set('trust proxy', true);
+
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
@@ -37,41 +41,6 @@ function validatePayload(body) {
  * POST /api/receipt
  * Generate struk digital, SIMPAN ke disk dengan nama file random,
  * dan file otomatis terhapus setelah 5 menit.
- *
- * Body contoh:
- * {
- *   "merchantName": "Toko Jaya Makmur",
- *   "merchantAddress": "Jl. Merdeka No. 10, Jakarta",
- *   "merchantPhone": "0812-3456-7890",
- *   "txid": "TRX-20260618-0001",      // opsional, auto generate jika kosong
- *   "date": "2026-06-18T14:30:00Z",   // opsional, default now
- *   "cashier": "Admin",
- *   "customerName": "Budi Santoso",
- *   "paymentMethod": "QRIS",
- *   "status": "LUNAS",
- *   "items": [
- *     { "name": "Kaos Polos Hitam L", "qty": 2, "price": 75000 },
- *     { "name": "Ongkir Reguler", "qty": 1, "price": 15000 }
- *   ],
- *   "discount": 10000,
- *   "tax": 0,
- *   "shippingFee": 0,
- *   "note": "Barang tidak dapat dikembalikan tanpa struk ini.",
- *   "footerTitle": "Terima kasih telah berbelanja!"
- * }
- *
- * Response (JSON):
- * {
- *   "success": true,
- *   "txid": "TRX-...",
- *   "filename": "struk_3f9a1c2e....png",
- *   "url": "/api/receipt/file/struk_3f9a1c2e....png",
- *   "expiresAt": "2026-06-18T14:35:00.000Z",
- *   "expiresInSeconds": 300
- * }
- *
- * File bisa langsung dibuka via `url` di atas (digabung dengan base URL server).
- * File akan otomatis terhapus 5 menit setelah dibuat.
  */
 app.post('/api/receipt', (req, res) => {
   try {
@@ -150,30 +119,29 @@ app.post('/api/receipt/direct', (req, res) => {
 
 /**
  * GET /api/receipt/preview
- * Lihat contoh struk dummy langsung di browser, sekaligus tersimpan ke disk
- * dan auto-hapus 5 menit seperti endpoint utama (untuk testing end-to-end).
+ * Lihat contoh struk dummy langsung di browser.
+ * Data dummy disesuaikan dengan branding layanan digital.
  */
 app.get('/api/receipt/preview', (req, res) => {
   const dummy = {
-    merchantName: 'Toko Jaya Makmur',
-    merchantAddress: 'Jl. Merdeka No. 10, Jakarta Selatan',
-    merchantPhone: '0812-3456-7890',
-    txid: `TRX-${Date.now()}`,
+    merchantName: 'PANSA GROUP',
+    merchantAddress: 'Digital Services & API Solutions',
+    merchantPhone: 'support@pansa.my.id',
+    txid: `INV-${Date.now()}`,
     date: new Date().toISOString(),
-    cashier: 'Admin',
-    customerName: 'Budi Santoso',
-    paymentMethod: 'QRIS',
+    customerName: 'Client #0821',
+    paymentMethod: 'QRIS Deposit Gateway',
     status: 'LUNAS',
     items: [
-      { name: 'Kaos Polos Hitam Ukuran L', qty: 2, price: 75000 },
-      { name: 'Celana Jeans Slim Fit', qty: 1, price: 150000 },
-      { name: 'Ongkos Kirim Reguler', qty: 1, price: 15000 },
+      { name: 'Layanan Premium WhatsApp OTP', qty: 1, price: 150000 },
+      { name: 'Setup Cloud Server VM', qty: 1, price: 250000 },
+      { name: 'Maintenance Bulanan', qty: 1, price: 100000 },
     ],
-    discount: 10000,
+    discount: 50000,
     tax: 0,
-    shippingFee: 0,
-    note: 'Barang yang sudah dibeli tidak dapat dikembalikan tanpa menyertakan struk ini.',
-    footerTitle: 'Terima kasih telah berbelanja!',
+    shippingFee: 0, // Disesuaikan menjadi Biaya Layanan di generator
+    note: 'Layanan digital yang sudah diaktifkan tidak dapat dibatalkan (Non-refundable).',
+    footerTitle: 'Transaksi Berhasil',
   };
 
   const buffer = generateReceipt(dummy);
@@ -181,10 +149,10 @@ app.get('/api/receipt/preview', (req, res) => {
   res.send(buffer);
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', proxyActive: req.ip }));
 
 app.listen(PORT, () => {
-  console.log(`Struk API jalan di http://localhost:${PORT}`);
+  console.log(`Struk API jalan di port ${PORT}`);
   console.log(`Preview cepat   : http://localhost:${PORT}/api/receipt/preview`);
   console.log(`File akan otomatis terhapus setelah ${TTL_MS / 1000} detik sejak dibuat.`);
 });
