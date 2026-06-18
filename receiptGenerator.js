@@ -1,7 +1,7 @@
 const { createCanvas } = require('canvas');
 
 /**
- * Format angka jadi Rupiah, contoh: 15000 -> "Rp 15.000"
+ * Format angka jadi Rupiah
  */
 function formatRupiah(angka) {
   const num = Number(angka) || 0;
@@ -9,7 +9,7 @@ function formatRupiah(angka) {
 }
 
 /**
- * Format tanggal jadi format Indonesia, contoh: 18 Jun 2026, 14:30
+ * Format tanggal jadi format Indonesia
  */
 function formatTanggal(date) {
   const d = date instanceof Date ? date : new Date(date);
@@ -19,7 +19,7 @@ function formatTanggal(date) {
 }
 
 /**
- * Pecah teks panjang jadi beberapa baris agar tidak overflow lebar canvas
+ * Pecah teks panjang jadi beberapa baris
  */
 function wrapText(ctx, text, maxWidth) {
   const words = String(text).split(' ');
@@ -40,9 +40,9 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 /**
- * Gambar garis solid modern (pengganti garis putus-putus)
+ * Gambar garis solid modern dan tipis
  */
-function drawDivider(ctx, x1, y, x2, color = '#27272A') {
+function drawDivider(ctx, x1, y, x2, color = '#E4E4E7') { // Zinc 200
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
@@ -54,7 +54,7 @@ function drawDivider(ctx, x1, y, x2, color = '#27272A') {
 }
 
 /**
- * Gambar badge status (contoh: LUNAS dengan background hijau)
+ * Gambar badge status bergaya soft-premium (Light Mode)
  */
 function drawBadge(ctx, text, x, y) {
   ctx.save();
@@ -65,14 +65,14 @@ function drawBadge(ctx, text, x, y) {
   const badgeWidth = textWidth + (paddingX * 2);
   const badgeHeight = 22;
 
-  // Background Badge (Emerald / Green)
-  ctx.fillStyle = '#064E3B'; 
+  // Background Badge (Soft Emerald)
+  ctx.fillStyle = '#ECFDF5'; 
   ctx.beginPath();
   ctx.roundRect(x - badgeWidth, y - 14, badgeWidth, badgeHeight, 6);
   ctx.fill();
 
-  // Text Badge
-  ctx.fillStyle = '#34D399'; 
+  // Text Badge (Dark Emerald)
+  ctx.fillStyle = '#059669'; 
   ctx.textAlign = 'center';
   ctx.fillText(text, x - (badgeWidth / 2), y + 1);
   ctx.restore();
@@ -85,19 +85,19 @@ function calculateHeight(data) {
   const items = data.items || [];
   let height = 0;
 
-  height += 60;  // padding top + logo/header spacing
-  height += 80;  // nama brand & deskripsi
+  height += 60;  // padding top
+  height += 80;  // brand
   height += 30;  // separator
   height += 120; // info transaksi
   height += 30;  // separator
 
   items.forEach((item) => {
-    height += 30; // spacing per item (premium lebih lega)
+    height += 30; 
     if ((item.name || '').length > 28) height += 20;
   });
 
-  height += 30;  // separator sebelum total
-  height += 130; // subtotal, diskon, pajak, total
+  height += 30;  // separator
+  height += 130; // subtotal dll
   height += 30;  // separator
   height += 90;  // footer
 
@@ -107,84 +107,90 @@ function calculateHeight(data) {
 }
 
 /**
- * Generator utama: membangun struk digital dari data transaksi
+ * Generator utama: membangun struk digital Super HD
  * @param {Object} data - data struk
  * @returns {Buffer} PNG buffer
  */
 function generateReceipt(data) {
-  const WIDTH = 560;
-  const HEIGHT = calculateHeight(data);
-  const PAD = 40; // Padding lebih lebar untuk kesan premium
+  // --- KONFIGURASI SUPER HD ---
+  const SCALE = 3; // 3x Lipat Resolusi (Retina Display Quality)
+  const BASE_WIDTH = 560;
+  const BASE_HEIGHT = calculateHeight(data);
+  const PAD = 40; 
 
-  const canvas = createCanvas(WIDTH, HEIGHT);
+  // Buat kanvas dengan resolusi besar
+  const canvas = createCanvas(BASE_WIDTH * SCALE, BASE_HEIGHT * SCALE);
   const ctx = canvas.getContext('2d');
 
-  // --- Background (Dark Mode Premium) ---
-  ctx.fillStyle = '#09090B'; // Zinc 950
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  // Skalakan context agar kita tetap bisa menulis koordinat 1x (normal)
+  ctx.scale(SCALE, SCALE);
 
-  // --- Top Accent Line (Neon Glow vibe) ---
-  ctx.fillStyle = '#3B82F6'; // Blue 500
-  ctx.fillRect(0, 0, WIDTH, 4);
+  // --- Background (Light Mode Premium) ---
+  ctx.fillStyle = '#FFFFFF'; // Pure White
+  ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
 
-  let y = 60;
+  // --- Top Accent Line (Sleek Black/Zinc 900) ---
+  ctx.fillStyle = '#18181B'; 
+  ctx.fillRect(0, 0, BASE_WIDTH, 6);
+
+  let y = 70;
 
   // --- Header: Brand ---
-  ctx.fillStyle = '#FAFAFA'; // Zinc 50
-  ctx.font = 'bold 30px sans-serif';
+  ctx.fillStyle = '#18181B'; // Zinc 900
+  ctx.font = '900 32px sans-serif'; // Font lebih tebal dan tegas
   ctx.textAlign = 'center';
-  ctx.fillText(data.merchantName || 'PANSA GROUP', WIDTH / 2, y);
+  ctx.fillText(data.merchantName || 'PANSA GROUP', BASE_WIDTH / 2, y);
   y += 28;
 
   if (data.merchantAddress) {
     ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#A1A1AA'; // Zinc 400
-    const addrLines = wrapText(ctx, data.merchantAddress, WIDTH - PAD * 2);
+    ctx.fillStyle = '#71717A'; // Zinc 500
+    const addrLines = wrapText(ctx, data.merchantAddress, BASE_WIDTH - PAD * 2);
     addrLines.forEach((line) => {
-      ctx.fillText(line, WIDTH / 2, y);
+      ctx.fillText(line, BASE_WIDTH / 2, y);
       y += 20;
     });
   }
 
-  y += 10;
-  drawDivider(ctx, PAD, y, WIDTH - PAD);
-  y += 30;
+  y += 15;
+  drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
+  y += 35;
 
   // --- Info transaksi ---
   ctx.textAlign = 'left';
 
   const infoRow = (label, value, isBadge = false) => {
-    ctx.fillStyle = '#A1A1AA';
+    ctx.fillStyle = '#71717A'; // Teks Label
     ctx.font = '13px sans-serif';
     ctx.fillText(label, PAD, y);
     
     if (isBadge) {
-      drawBadge(ctx, value, WIDTH - PAD, y);
+      drawBadge(ctx, value, BASE_WIDTH - PAD, y);
     } else {
-      ctx.fillStyle = '#FAFAFA';
-      ctx.font = 'bold 13px sans-serif';
+      ctx.fillStyle = '#18181B'; // Teks Value
+      ctx.font = '600 13px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(String(value ?? '-'), WIDTH - PAD, y);
+      ctx.fillText(String(value ?? '-'), BASE_WIDTH - PAD, y);
       ctx.textAlign = 'left';
     }
-    y += 26; // Spacing lebih lega
+    y += 26; 
   };
 
   infoRow('No. Transaksi', data.txid || '-');
   infoRow('Tanggal', formatTanggal(data.date || new Date()));
   if (data.customerName) infoRow('Pelanggan', data.customerName);
   if (data.paymentMethod) infoRow('Metode Bayar', data.paymentMethod);
-  infoRow('Status', data.status || 'LUNAS', true); // Panggil fungsi badge
+  infoRow('Status', data.status || 'LUNAS', true);
 
-  y += 10;
-  drawDivider(ctx, PAD, y, WIDTH - PAD);
-  y += 30;
+  y += 15;
+  drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
+  y += 35;
 
   // --- Daftar item ---
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillStyle = '#71717A'; // Zinc 500
+  ctx.fillStyle = '#A1A1AA'; // Zinc 400
   ctx.fillText('ITEM TRANSAKSI', PAD, y);
-  y += 24;
+  y += 28;
 
   const items = data.items || [];
   items.forEach((item) => {
@@ -192,14 +198,14 @@ function generateReceipt(data) {
     const price = item.price || 0;
     const subtotal = item.subtotal ?? qty * price;
 
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillStyle = '#FAFAFA';
+    ctx.font = '600 15px sans-serif';
+    ctx.fillStyle = '#18181B';
 
     const nameLines = wrapText(ctx, item.name || 'Item', 300);
     ctx.fillText(nameLines[0], PAD, y);
 
     ctx.textAlign = 'right';
-    ctx.fillText(formatRupiah(subtotal), WIDTH - PAD, y);
+    ctx.fillText(formatRupiah(subtotal), BASE_WIDTH - PAD, y);
     ctx.textAlign = 'left';
     y += 20;
 
@@ -209,25 +215,25 @@ function generateReceipt(data) {
     }
 
     ctx.font = '13px sans-serif';
-    ctx.fillStyle = '#A1A1AA';
+    ctx.fillStyle = '#71717A';
     ctx.fillText(`${qty} x ${formatRupiah(price)}`, PAD, y);
-    y += 28;
+    y += 30;
   });
 
-  drawDivider(ctx, PAD, y, WIDTH - PAD);
-  y += 30;
+  drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
+  y += 35;
 
   // --- Ringkasan total ---
   const subtotalAll = data.subtotal ?? items.reduce((sum, i) => sum + (i.subtotal ?? i.qty * i.price), 0);
 
   const totalRow = (label, value, big = false) => {
-    ctx.font = big ? 'bold 18px sans-serif' : '14px sans-serif';
-    ctx.fillStyle = big ? '#FAFAFA' : '#A1A1AA';
+    ctx.font = big ? '800 18px sans-serif' : '14px sans-serif';
+    ctx.fillStyle = big ? '#18181B' : '#71717A';
     ctx.fillText(label, PAD, y);
     
-    if (big) ctx.fillStyle = '#60A5FA'; // Aksentuasi warna biru untuk Total Bayar
+    if (big) ctx.fillStyle = '#2563EB'; // Aksentuasi Biru Premium untuk Total
     ctx.textAlign = 'right';
-    ctx.fillText(formatRupiah(value), WIDTH - PAD, y);
+    ctx.fillText(formatRupiah(value), BASE_WIDTH - PAD, y);
     ctx.textAlign = 'left';
     y += big ? 30 : 24;
   };
@@ -237,33 +243,36 @@ function generateReceipt(data) {
   if (data.tax) totalRow('Pajak', data.tax);
   if (data.shippingFee) totalRow('Biaya Layanan', data.shippingFee);
 
-  y += 6;
-  drawDivider(ctx, PAD, y, WIDTH - PAD);
-  y += 30;
+  y += 10;
+  drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
+  y += 35;
 
   const total = data.total ?? (subtotalAll - (data.discount || 0) + (data.tax || 0) + (data.shippingFee || 0));
   totalRow('TOTAL BAYAR', total, true);
 
-  y += 20;
+  y += 25;
 
   // --- Footer ---
-  ctx.fillStyle = '#18181B'; // Background kotak footer
+  ctx.fillStyle = '#F4F4F5'; // Zinc 100 (Sangat soft gray)
   ctx.beginPath();
-  ctx.roundRect(PAD, y, WIDTH - (PAD * 2), 80, 8);
+  ctx.roundRect(PAD, y, BASE_WIDTH - (PAD * 2), 80, 8);
   ctx.fill();
 
   y += 32;
   ctx.textAlign = 'center';
   ctx.font = 'bold 14px sans-serif';
-  ctx.fillStyle = '#FAFAFA';
-  ctx.fillText(data.footerTitle || 'Transaksi Berhasil', WIDTH / 2, y);
+  ctx.fillStyle = '#18181B';
+  ctx.fillText(data.footerTitle || 'Transaksi Berhasil', BASE_WIDTH / 2, y);
   y += 22;
 
   ctx.font = '12px sans-serif';
-  ctx.fillStyle = '#A1A1AA';
-  ctx.fillText('Dokumen digital ini sah dan diterbitkan oleh sistem.', WIDTH / 2, y);
+  ctx.fillStyle = '#71717A';
+  ctx.fillText('Dokumen digital ini sah dan diterbitkan oleh sistem.', BASE_WIDTH / 2, y);
 
-  return canvas.toBuffer('image/png');
+  return canvas.toBuffer('image/png', {
+    compressionLevel: 6, // Optimasi ukuran file karena resolusi besar
+    filters: canvas.PNG_FILTER_NONE
+  });
 }
 
 module.exports = { generateReceipt, formatRupiah, formatTanggal };
