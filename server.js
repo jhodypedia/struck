@@ -14,7 +14,7 @@ app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-// Jalankan cleanup berkala (jaga-jaga file nyangkut kalau server pernah restart)
+// Jalankan cleanup berkala untuk menghapus file struk yang sudah expired (lebih dari 5 menit)
 startCleanupInterval();
 
 /**
@@ -39,8 +39,8 @@ function validatePayload(body) {
 
 /**
  * POST /api/receipt
- * Generate struk digital, SIMPAN ke disk dengan nama file random,
- * dan file otomatis terhapus setelah 5 menit.
+ * Generate struk digital, SIMPAN ke disk dengan nama random.
+ * Mengembalikan dua URL: satu untuk dilihat (viewUrl), satu untuk diunduh (downloadUrl).
  */
 app.post('/api/receipt', (req, res) => {
   try {
@@ -62,7 +62,8 @@ app.post('/api/receipt', (req, res) => {
       success: true,
       txid: payload.txid,
       filename,
-      url: `/api/receipt/file/${filename}`,
+      viewUrl: `/api/receipt/file/${filename}`,
+      downloadUrl: `/api/receipt/download/${filename}`,
       expiresAt: new Date(expiresAt).toISOString(),
       expiresInSeconds: Math.round(TTL_MS / 1000),
     });
@@ -74,7 +75,7 @@ app.post('/api/receipt', (req, res) => {
 
 /**
  * GET /api/receipt/file/:filename
- * Ambil file struk PNG yang sudah digenerate (selama belum expired/dihapus).
+ * Ambil file struk PNG untuk DILIHAT di dalam browser (inline preview).
  */
 app.get('/api/receipt/file/:filename', (req, res) => {
   const filePath = getFilePath(req.params.filename);
@@ -82,18 +83,38 @@ app.get('/api/receipt/file/:filename', (req, res) => {
   if (!filePath) {
     return res.status(404).json({
       success: false,
-      message: 'Struk tidak ditemukan. Mungkin sudah kedaluwarsa (lebih dari 5 menit) atau nama file tidak valid.',
+      message: 'Struk tidak ditemukan. Mungkin sudah kedaluwarsa atau nama file tidak valid.',
     });
   }
 
   res.set('Content-Type', 'image/png');
+  res.set('Content-Disposition', 'inline');
   res.sendFile(filePath);
 });
 
 /**
+ * GET /api/receipt/download/:filename
+ * Ambil file struk PNG untuk LANGSUNG DIUNDUH (Force Download) ke perangkat user.
+ */
+app.get('/api/receipt/download/:filename', (req, res) => {
+  const filePath = getFilePath(req.params.filename);
+
+  if (!filePath) {
+    return res.status(404).json({
+      success: false,
+      message: 'Struk tidak ditemukan. Mungkin sudah kedaluwarsa atau nama file tidak valid.',
+    });
+  }
+
+  // Memberikan nama file yang lebih ramah saat diunduh user
+  const downloadName = `Struk-${req.params.filename}`;
+  res.download(filePath, downloadName);
+});
+
+/**
  * POST /api/receipt/direct
- * Sama seperti /api/receipt, tapi langsung balas gambar PNG (tanpa simpan file).
- * Cocok untuk preview cepat tanpa perlu menyimpan apa pun di server.
+ * Cocok untuk sistem bot. Merender gambar PNG secara instan tanpa menyimpannya ke server.
+ * Tambahkan query ?download=true jika ingin memaksa unduhan (contoh: /api/receipt/direct?download=true)
  */
 app.post('/api/receipt/direct', (req, res) => {
   try {
@@ -110,6 +131,13 @@ app.post('/api/receipt/direct', (req, res) => {
 
     const buffer = generateReceipt(payload);
     res.set('Content-Type', 'image/png');
+
+    if (req.query.download === 'true') {
+      res.set('Content-Disposition', `attachment; filename="Struk-${payload.txid}.png"`);
+    } else {
+      res.set('Content-Disposition', 'inline');
+    }
+
     res.send(buffer);
   } catch (err) {
     console.error('Gagal generate struk:', err);
@@ -120,10 +148,43 @@ app.post('/api/receipt/direct', (req, res) => {
 /**
  * GET /api/receipt/preview
  * Lihat contoh struk dummy langsung di browser.
- * Data dummy disesuaikan dengan branding layanan digital.
  */
 app.get('/api/receipt/preview', (req, res) => {
-  const dummy = {
+  const dummy = getDummyData();
+  const buffer = generateReceipt(dummy);
+  
+  res.set('Content-Type', 'image/png');
+  res.set('Content-Disposition', 'inline');
+  res.send(buffer);
+});
+
+/**
+ * GET /api/receipt/preview/download
+ * Tes fitur otomatis download menggunakan data dummy.
+ */
+app.get('/api/receipt/preview/download', (req, res) => {
+  const dummy = getDummyData();
+  const buffer = generateReceipt(dummy);
+  
+  res.set('Content-Type', 'image/png');
+  res.set('Content-Disposition', `attachment; filename="Struk-${dummy.txid}.png"`);
+  res.send(buffer);
+});
+
+app.get('/health', (req, res) => res.json({ status: 'ok', proxyActive: req.ip }));
+
+app.listen(PORT, () => {
+  console.log(`Struk API jalan di port ${PORT}`);
+  console.log(`Preview (Lihat)    : http://localhost:${PORT}/api/receipt/preview`);
+  console.log(`Preview (Download) : http://localhost:${PORT}/api/receipt/preview/download`);
+  console.log(`File akan otomatis terhapus setelah ${TTL_MS / 1000} detik sejak dibuat.`);
+});
+
+/**
+ * Fungsi bantuan untuk menyediakan data dummy yang seragam
+ */
+function getDummyData() {
+  return {
     merchantName: 'PANSA GROUP',
     merchantAddress: 'Digital Services & API Solutions',
     merchantPhone: 'support@pansa.my.id',
@@ -133,26 +194,14 @@ app.get('/api/receipt/preview', (req, res) => {
     paymentMethod: 'QRIS Deposit Gateway',
     status: 'LUNAS',
     items: [
-      { name: 'Layanan Premium WhatsApp OTP', qty: 1, price: 150000 },
+      { name: 'WhatsApp OTP Premium', qty: 1, price: 150000 },
       { name: 'Setup Cloud Server VM', qty: 1, price: 250000 },
       { name: 'Maintenance Bulanan', qty: 1, price: 100000 },
     ],
     discount: 50000,
     tax: 0,
-    shippingFee: 0, // Disesuaikan menjadi Biaya Layanan di generator
+    shippingFee: 0,
     note: 'Layanan digital yang sudah diaktifkan tidak dapat dibatalkan (Non-refundable).',
     footerTitle: 'Transaksi Berhasil',
   };
-
-  const buffer = generateReceipt(dummy);
-  res.set('Content-Type', 'image/png');
-  res.send(buffer);
-});
-
-app.get('/health', (req, res) => res.json({ status: 'ok', proxyActive: req.ip }));
-
-app.listen(PORT, () => {
-  console.log(`Struk API jalan di port ${PORT}`);
-  console.log(`Preview cepat   : http://localhost:${PORT}/api/receipt/preview`);
-  console.log(`File akan otomatis terhapus setelah ${TTL_MS / 1000} detik sejak dibuat.`);
-});
+}
