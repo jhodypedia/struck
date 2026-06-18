@@ -40,7 +40,7 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 /**
- * Gambar garis solid modern dan tipis
+ * Gambar garis pembatas
  */
 function drawDivider(ctx, x1, y, x2, color = '#E4E4E7') { // Zinc 200
   ctx.save();
@@ -54,25 +54,24 @@ function drawDivider(ctx, x1, y, x2, color = '#E4E4E7') { // Zinc 200
 }
 
 /**
- * Gambar badge status bergaya soft-premium (Light Mode)
+ * Gambar badge status bergaya premium
  */
 function drawBadge(ctx, text, x, y) {
   ctx.save();
   ctx.font = 'bold 11px sans-serif';
   const textWidth = ctx.measureText(text).width;
   const paddingX = 12;
-  const paddingY = 6;
   const badgeWidth = textWidth + (paddingX * 2);
   const badgeHeight = 22;
 
-  // Background Badge (Soft Emerald)
-  ctx.fillStyle = '#ECFDF5'; 
+  // Background Badge (Soft Blue/Emerald)
+  ctx.fillStyle = text === 'LUNAS' ? '#ECFDF5' : '#FEF2F2'; 
   ctx.beginPath();
   ctx.roundRect(x - badgeWidth, y - 14, badgeWidth, badgeHeight, 6);
   ctx.fill();
 
-  // Text Badge (Dark Emerald)
-  ctx.fillStyle = '#059669'; 
+  // Text Badge
+  ctx.fillStyle = text === 'LUNAS' ? '#059669' : '#DC2626'; 
   ctx.textAlign = 'center';
   ctx.fillText(text, x - (badgeWidth / 2), y + 1);
   ctx.restore();
@@ -85,8 +84,8 @@ function calculateHeight(data) {
   const items = data.items || [];
   let height = 0;
 
-  height += 60;  // padding top
-  height += 80;  // brand
+  height += 80;  // Header spacing
+  height += 70;  // Brand
   height += 30;  // separator
   height += 120; // info transaksi
   height += 30;  // separator
@@ -97,62 +96,76 @@ function calculateHeight(data) {
   });
 
   height += 30;  // separator
-  height += 130; // subtotal dll
-  height += 30;  // separator
-  height += 90;  // footer
+  height += 100; // subtotal dll
+  height += 80;  // Total Box Highlight (Lebih tinggi)
+  height += 60;  // spacing
 
-  if (data.note) height += 40;
+  // Hitung tinggi note
+  if (data.note) {
+    const tempCanvas = createCanvas(100, 100);
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.font = '12px sans-serif';
+    const noteLines = wrapText(tempCtx, data.note, 560 - 80);
+    height += (noteLines.length * 18);
+  }
 
-  return Math.max(height, 550);
+  height += 60; // footer bottom padding
+
+  return Math.max(height, 600);
 }
 
 /**
- * Generator utama: membangun struk digital Super HD
+ * Generator utama: membangun struk digital Super HD Premium
  * @param {Object} data - data struk
  * @returns {Buffer} PNG buffer
  */
 function generateReceipt(data) {
-  // --- KONFIGURASI SUPER HD ---
-  const SCALE = 3; // 3x Lipat Resolusi (Retina Display Quality)
+  const SCALE = 3; 
   const BASE_WIDTH = 560;
   const BASE_HEIGHT = calculateHeight(data);
   const PAD = 40; 
 
-  // Buat kanvas dengan resolusi besar
   const canvas = createCanvas(BASE_WIDTH * SCALE, BASE_HEIGHT * SCALE);
   const ctx = canvas.getContext('2d');
-
-  // Skalakan context agar kita tetap bisa menulis koordinat 1x (normal)
   ctx.scale(SCALE, SCALE);
 
-  // --- Background (Light Mode Premium) ---
-  ctx.fillStyle = '#FFFFFF'; // Pure White
+  // --- Background Pure White ---
+  ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
 
-  // --- Top Accent Line (Sleek Black/Zinc 900) ---
-  ctx.fillStyle = '#18181B'; 
+  // --- Outer Border (Frame Kartu Halus) ---
+  ctx.strokeStyle = '#F4F4F5'; // Sangat soft
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, BASE_WIDTH - 2, BASE_HEIGHT - 2);
+
+  // --- Top Accent Line (Pansa Blue Premium) ---
+  ctx.fillStyle = '#2563EB'; 
   ctx.fillRect(0, 0, BASE_WIDTH, 6);
 
-  let y = 70;
+  let y = 60;
+
+  // --- Label Resmi ---
+  ctx.fillStyle = '#2563EB'; 
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.letterSpacing = '2px'; // Jika didukung environment, jika tidak diabaikan
+  ctx.fillText('OFFICIAL RECEIPT', BASE_WIDTH / 2, y);
+  y += 35;
 
   // --- Header: Brand ---
-  ctx.fillStyle = '#18181B'; // Zinc 900
-  ctx.font = '900 32px sans-serif'; // Font lebih tebal dan tegas
+  ctx.fillStyle = '#18181B'; 
+  ctx.font = '900 28px sans-serif'; 
   ctx.textAlign = 'center';
   ctx.fillText(data.merchantName || 'PANSA GROUP', BASE_WIDTH / 2, y);
-  y += 28;
+  y += 24;
 
   if (data.merchantAddress) {
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#71717A'; // Zinc 500
-    const addrLines = wrapText(ctx, data.merchantAddress, BASE_WIDTH - PAD * 2);
-    addrLines.forEach((line) => {
-      ctx.fillText(line, BASE_WIDTH / 2, y);
-      y += 20;
-    });
+    ctx.font = '13px sans-serif';
+    ctx.fillStyle = '#71717A'; 
+    ctx.fillText(data.merchantAddress, BASE_WIDTH / 2, y);
   }
 
-  y += 15;
+  y += 25;
   drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
   y += 35;
 
@@ -160,14 +173,14 @@ function generateReceipt(data) {
   ctx.textAlign = 'left';
 
   const infoRow = (label, value, isBadge = false) => {
-    ctx.fillStyle = '#71717A'; // Teks Label
+    ctx.fillStyle = '#71717A'; 
     ctx.font = '13px sans-serif';
     ctx.fillText(label, PAD, y);
     
     if (isBadge) {
       drawBadge(ctx, value, BASE_WIDTH - PAD, y);
     } else {
-      ctx.fillStyle = '#18181B'; // Teks Value
+      ctx.fillStyle = '#18181B'; 
       ctx.font = '600 13px sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(String(value ?? '-'), BASE_WIDTH - PAD, y);
@@ -188,9 +201,9 @@ function generateReceipt(data) {
 
   // --- Daftar item ---
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillStyle = '#A1A1AA'; // Zinc 400
+  ctx.fillStyle = '#A1A1AA'; 
   ctx.fillText('ITEM TRANSAKSI', PAD, y);
-  y += 28;
+  y += 30;
 
   const items = data.items || [];
   items.forEach((item) => {
@@ -223,19 +236,19 @@ function generateReceipt(data) {
   drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
   y += 35;
 
-  // --- Ringkasan total ---
+  // --- Ringkasan subtotal ---
   const subtotalAll = data.subtotal ?? items.reduce((sum, i) => sum + (i.subtotal ?? i.qty * i.price), 0);
 
-  const totalRow = (label, value, big = false) => {
-    ctx.font = big ? '800 18px sans-serif' : '14px sans-serif';
-    ctx.fillStyle = big ? '#18181B' : '#71717A';
+  const totalRow = (label, value) => {
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#71717A';
     ctx.fillText(label, PAD, y);
     
-    if (big) ctx.fillStyle = '#2563EB'; // Aksentuasi Biru Premium untuk Total
+    ctx.fillStyle = '#18181B';
     ctx.textAlign = 'right';
     ctx.fillText(formatRupiah(value), BASE_WIDTH - PAD, y);
     ctx.textAlign = 'left';
-    y += big ? 30 : 24;
+    y += 24;
   };
 
   totalRow('Subtotal', subtotalAll);
@@ -243,34 +256,53 @@ function generateReceipt(data) {
   if (data.tax) totalRow('Pajak', data.tax);
   if (data.shippingFee) totalRow('Biaya Layanan', data.shippingFee);
 
-  y += 10;
-  drawDivider(ctx, PAD, y, BASE_WIDTH - PAD);
-  y += 35;
+  y += 15;
 
+  // --- Kotak Highlight TOTAL BAYAR ---
   const total = data.total ?? (subtotalAll - (data.discount || 0) + (data.tax || 0) + (data.shippingFee || 0));
-  totalRow('TOTAL BAYAR', total, true);
-
-  y += 25;
-
-  // --- Footer ---
-  ctx.fillStyle = '#F4F4F5'; // Zinc 100 (Sangat soft gray)
+  
+  // Background Kotak Total (Biru Sangat Soft)
+  ctx.fillStyle = '#EFF6FF'; 
   ctx.beginPath();
-  ctx.roundRect(PAD, y, BASE_WIDTH - (PAD * 2), 80, 8);
+  ctx.roundRect(PAD, y, BASE_WIDTH - (PAD * 2), 60, 8);
   ctx.fill();
 
-  y += 32;
+  y += 36; // Posisikan text di tengah kotak
+  ctx.font = '800 18px sans-serif';
+  ctx.fillStyle = '#1E3A8A'; // Biru Tua Elegan
+  ctx.fillText('TOTAL BAYAR', PAD + 20, y);
+  
+  ctx.fillStyle = '#2563EB'; // Biru Pansa
+  ctx.textAlign = 'right';
+  ctx.fillText(formatRupiah(total), BASE_WIDTH - PAD - 20, y);
+  ctx.textAlign = 'left';
+
+  y += 60; // Turun melewati kotak
+
+  // --- Footer Text (Memperbaiki Bug Kosong) ---
   ctx.textAlign = 'center';
   ctx.font = 'bold 14px sans-serif';
   ctx.fillStyle = '#18181B';
   ctx.fillText(data.footerTitle || 'Transaksi Berhasil', BASE_WIDTH / 2, y);
   y += 22;
 
-  ctx.font = '12px sans-serif';
-  ctx.fillStyle = '#71717A';
-  ctx.fillText('Dokumen digital ini sah dan diterbitkan oleh sistem.', BASE_WIDTH / 2, y);
+  if (data.note) {
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#71717A';
+    const noteLines = wrapText(ctx, data.note, BASE_WIDTH - (PAD * 2));
+    noteLines.forEach((line) => {
+      ctx.fillText(line, BASE_WIDTH / 2, y);
+      y += 18;
+    });
+  }
+
+  y += 10;
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#A1A1AA'; // Zinc 400
+  ctx.fillText('Dokumen digital ini sah dan diterbitkan otomatis oleh sistem.', BASE_WIDTH / 2, y);
 
   return canvas.toBuffer('image/png', {
-    compressionLevel: 6, // Optimasi ukuran file karena resolusi besar
+    compressionLevel: 6,
     filters: canvas.PNG_FILTER_NONE
   });
 }
